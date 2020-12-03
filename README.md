@@ -1,5 +1,5 @@
 # TubeSorting
-Inspired from Water Sort Puzzle
+Solver for a game like Water Sort Puzzle
 
 https://play.google.com/store/apps/details?id=com.gma.water.sort.puzzle&hl=en_US&gl=US
 
