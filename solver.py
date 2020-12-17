@@ -46,6 +46,8 @@ def print_game():
     print()
     
 def tubes_to_position():
+    """Return string encoding tubes contents
+    """
     pos = ""
     for tube in tubes:
         for elem in tube:
@@ -58,6 +60,8 @@ def tubes_to_position():
     return pos
     
 def position_to_tubes(pos):
+    """Fill tubes by decoding a string
+    """
     global tubes
     tubes = []
     i = 0
@@ -74,7 +78,7 @@ def possible(src, dst):
     tube_src must not be empty
     tube_src must contain at least 2 different elements to be poured in an empty tube_dst
     tube_dst must not be full
-    tube_dst must be empty or his last color must be the same as tube_src's
+    tube_dst must be empty or his last color must be the same as last tube_src's color
     move must not create a list of moves that is known impossible
     move must not create a position reached before
     """
@@ -129,7 +133,7 @@ def redo_moves_from_start():
         pour(tubes[move[0]], tubes[move[1]])
 
 def check_tube_finished(tube):
-    """ Return True if tube is empty or full of the same element
+    """Return True if tube is empty or full of the same element
     """
     # Check if tube is empty
     if not tube:
@@ -157,8 +161,8 @@ def brute_force():
                     is_solved = False
                     
             if is_solved:
-                input("Solved.")
-                return
+                print("Solved.")
+                exit()
     
     # Algorithm goes here if no more move is possible
     impossible_moves.append(moves.copy())
@@ -177,4 +181,3 @@ if __name__ == "__main__":
     compute_start_tubes()
     
     brute_force()
-    
