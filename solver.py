@@ -58,6 +58,7 @@ def tubes_to_position():
     return pos
     
 def position_to_tubes(pos):
+    global tubes
     tubes = []
     i = 0
     for _ in range(nb_tubes):
