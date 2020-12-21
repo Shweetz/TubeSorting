@@ -1,4 +1,7 @@
 
+# Depth first search or breadth first search
+DEPTH_FIRST_SEARCH = False
+
 grid = [[2, 1, 1, 0, 4],
         [3, 3, 4, 0, 2],
         [3, 1, 2, 0, 4],
@@ -9,12 +12,20 @@ grid = [[1, 4, 7, 6, 2, 3, 6, 5, 1, 0, 0],
         [3, 1, 8, 7, 9, 7, 9, 5, 6, 0, 0],
         [4, 6, 4, 2, 8, 4, 3, 8, 2, 0, 0]]
 
+grid = [[2, 4, 7, 6, 0, 3, 6, 0, 1, 0, 0],
+        [2, 5, 3, 7, 9, 5, 1, 9, 8, 0, 0],
+        [3, 1, 8, 7, 9, 7, 9, 5, 6, 0, 0],
+        [4, 6, 4, 2, 8, 4, 3, 8, 2, 1, 5]]
+
+"""
+######## 0  1  2  3  4  5  6  7  8  9  A
+grid = [[0, 6, 0, 2, 4, 3, 0, 0, 7, 1, 5],
+        [0, 6, 0, 2, 8, 9, 3, 9, 7, 1, 5],
+        [4, 6, 0, 2, 8, 8, 3, 9, 7, 1, 5],
+        [4, 6, 0, 2, 8, 4, 3, 9, 7, 1, 5]]
+"""
 size_tube = len(grid)
 nb_tubes  = len(grid[0])
-
-moves = []
-impossible_moves = []
-positions_reached = []
 
 def compute_start_tubes():
     """A start tube is a column of start grid
@@ -32,8 +43,6 @@ def compute_start_tubes():
             if elem != 0:
                 tubes[j].append(elem)
                 
-    print_game()
-
 def print_game():
     for h in range(size_tube, 0, -1):
         line = ""
@@ -71,67 +80,83 @@ def position_to_tubes(pos):
             if pos[i] != "0":
                 tubes[-1].append(pos[i])
             i += 1
-
+            
 def possible(src, dst):
     """Check if move is possible and execute it if it is.
-    tube_src must be different from tube_dst
+    Rules for a move to be possible:
+    tube_src must not be tube_dst
     tube_src must not be empty
-    tube_src must contain at least 2 different elements to be poured in an empty tube_dst
     tube_dst must not be full
-    tube_dst must be empty or his last color must be the same as last tube_src's color
-    move must not create a list of moves that is known impossible
+    if tube_dst is empty, tube_src must contain at least 2 different elements
+    if tube_dst isn't empty, tube_src and tube_dst must have the same last color
     move must not create a position reached before
     """
     tube_src = tubes[src]
     tube_dst = tubes[dst]
     
+    # Tube checking
     if src == dst:
         return False
     if not tube_src:
         return False
-    if all(x==tube_src[0] for x in tube_src) and not tube_dst:
-        return False
-    if not len(tube_dst) < size_tube:
-        return False
-    if not (not tube_dst or tube_src[-1] == tube_dst[-1]):
-        return False
-        
-    moves.append((src, dst))    
-    if moves in impossible_moves:
-        print("Move ("+str(src)+", "+str(dst)+") is impossible")
-        moves.pop()
+    if len(tube_dst) >= size_tube:
         return False
     
-    position_before_move = tubes_to_position()
+    if not tube_dst:
+        if all(x==tube_src[0] for x in tube_src):
+            return False
+    else:
+        if tube_src[-1] != tube_dst[-1]:
+            return False
+        
+    # Try move
+    moves.append((src, dst))
+    
+    # Save position in case of rollback needed, then pour
+    position_before_move = tubes_to_position()    
     pour(tube_src, tube_dst)
     position_after_move = tubes_to_position()
     
+    # Check if position was already reached
     if position_after_move in positions_reached:
-        print("Position reached already, move impossible")
-        moves.pop()
-        position_to_tubes(position_before_move)
-        return False
+        # Check if we found a faster way to reach this position
+        if positions_reached[position_after_move] > len(moves):
+            # Faster way, remember the new number of moves and don't rollback
+            positions_reached[position_after_move] = len(moves)
+            
+        else:
+            #print("Position reached already")
+            moves.pop()
+            position_to_tubes(position_before_move)
+            return False            
     else:
-        positions_reached.append(position_after_move)
-    
-    return True
+        # Remember we reached this position and how many moves it needed
+        positions_reached[position_after_move] = len(moves)
         
+    return True
+    
 def pour(tube_src, tube_dst):
     """Pouring has to be done all the way
     """
     while tube_src and (not tube_dst or tube_src[-1] == tube_dst[-1]) and len(tube_dst) < size_tube:
         tube_dst.append(tube_src.pop())
         
-    print(moves)
-    print_game()
+    #print(moves)
+    #print_game()
     
 def redo_moves_from_start():
-    print("redo_moves_from_start")
-    
     compute_start_tubes()
     for move in moves:
         pour(tubes[move[0]], tubes[move[1]])
-
+        
+def rollback_last_move():
+    if moves:
+        moves.pop()
+        
+    # Because we don't know how much every move poured, we can't reverse moves
+    # Instead of storing how much was poured for every move, we start over and play all moves but last one
+    redo_moves_from_start()
+    
 def check_tube_finished(tube):
     """Return True if tube is empty or full of the same element
     """
@@ -144,40 +169,109 @@ def check_tube_finished(tube):
         return True
     
     return False
-
-def brute_force():
-    """Recursive search with backtracking
+    
+def brute_force_dfs():
+    """Recursive search DFS with backtracking
     """
+    global shortest_nb_winning_moves
+    global solvable
+    
     # Find move
     for i in range(len(tubes)):
         for j in range(len(tubes)):
-            if possible(i, j):
-                brute_force()
+            if len(moves) < shortest_nb_winning_moves and possible(i, j):
+                brute_force_dfs()
                     
-            # Check win
+            # Check solved when no more move is possible
             is_solved = True
             for tube in tubes:
                 if not check_tube_finished(tube):
                     is_solved = False
                     
             if is_solved:
-                print("Solved.")
-                exit()
+                solvable = True
+                if shortest_nb_winning_moves > len(moves):
+                    shortest_nb_winning_moves = len(moves)
+                    print("Solved in " + str(shortest_nb_winning_moves) + " moves:")
+                    
+                print(moves)
+                
+                # If solved, rollback last move to try something else
+                rollback_last_move()
     
-    # Algorithm goes here if no more move is possible
-    impossible_moves.append(moves.copy())
-    print("Impossible moves:")
-    for i in impossible_moves:
-        print(i)
-    print()
+    # If no more move is possible, rollback last move to try something else
+    rollback_last_move()
     
-    # Because we don't know how much every move poured, we can't reverse moves
-    # Instead of storing how much was poured for every move, we start over and play all moves but last one
-    moves.pop()
-    redo_moves_from_start()
-
+def brute_force_bfs():
+    """Recursive search BFS
+    """
+    global solvable
+    
+    # Find move
+    for i in range(len(tubes)):
+        for j in range(len(tubes)):
+            if len(moves) < shortest_nb_winning_moves and possible(i, j):
+                brute_force_bfs()
+                    
+                # Check solved
+                is_solved = True
+                for tube in tubes:
+                    if not check_tube_finished(tube):
+                        is_solved = False
+                        
+                if is_solved:
+                    solvable = True
+                    print(moves)
+                
+                # Reached max number of moves, can't go further in recursion
+                rollback_last_move()
+                
 # Solving script
 if __name__ == "__main__":
-    compute_start_tubes()
+
+    # Depth first search
+    if DEPTH_FIRST_SEARCH:
+        print("Start solving with DFS, fastest to find a solution.")
+        
+        solvable = False
+        shortest_nb_winning_moves = 100
+        
+        moves = []
+        positions_reached = {}
+        
+        compute_start_tubes()
+        brute_force_dfs()
+        
+        if solvable:
+            print("All shortest solutions found.")
+            print("shortest_nb_winning_moves=" + str(shortest_nb_winning_moves))
+        else:
+            print("Not solvable.")
     
-    brute_force()
+    # Breadth first search
+    else:
+        print("Start solving with BFS, fastest to find the shortest solution.")
+        
+        solvable = False
+        shortest_nb_winning_moves = 0
+        nb_previous_positions_reached = 0
+        
+        while not solvable:
+            print("Not solvable in " + str(shortest_nb_winning_moves) + " moves.")
+            
+            shortest_nb_winning_moves += 1
+        
+            moves = []
+            positions_reached = {}
+                
+            compute_start_tubes()
+            brute_force_bfs()
+            
+            if nb_previous_positions_reached < len(positions_reached):
+                nb_previous_positions_reached = len(positions_reached)
+            else:
+                print("Not solvable.")
+                break
+        
+        print("All shortest solutions found.")
+        print("shortest_nb_winning_moves=" + str(shortest_nb_winning_moves))
